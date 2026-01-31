@@ -84,7 +84,7 @@ export const handleEvent = async (event: line.WebhookEvent) => {
 
             return client.replyMessage(replyToken, {
                 type: 'text',
-                text: `${userName}さん、おはようございます！\n出勤を受け付けました (${timeString})`,
+                text: `${userName}さん、\n出勤を受け付けました (${timeString})`,
             });
         }
 
@@ -127,7 +127,7 @@ export const handleEvent = async (event: line.WebhookEvent) => {
 
             return client.replyMessage(replyToken, {
                 type: 'text',
-                text: `現場到着を記録しました (${timeString})。\n作業頑張ってください！`,
+                text: `現場到着を記録しました (${timeString})。`,
             });
         }
 
@@ -162,7 +162,7 @@ export const handleEvent = async (event: line.WebhookEvent) => {
 
             return client.replyMessage(replyToken, {
                 type: 'text',
-                text: `${userName}さん、お疲れ様でした！\n退勤を記録しました (${timeString})`,
+                text: `${userName}さん、\n退勤を記録しました (${timeString})`,
             });
         }
 
