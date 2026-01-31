@@ -7,7 +7,7 @@ const config = {
 };
 
 const client = new line.Client(config);
-const ADMIN_USER_ID = process.env.ADMIN_USER_ID || '';
+const ADMIN_USER_IDS = (process.env.ADMIN_USER_ID || '').split(',').map(id => id.trim()).filter(id => id);
 
 // Helper to get user display name (Simplified: just fetch from LINE)
 async function getUserName(userId: string): Promise<string> {
@@ -75,11 +75,13 @@ export const handleEvent = async (event: line.WebhookEvent) => {
             await appendAttendanceRow(userId, userName, timeString);
 
             // 管理者通知
-            if (ADMIN_USER_ID) {
-                await client.pushMessage(ADMIN_USER_ID, {
-                    type: 'text',
-                    text: `【出勤報告】\n${userName} さんが出勤しました。\n時刻: ${timeString}`,
-                });
+            if (ADMIN_USER_IDS.length > 0) {
+                await Promise.all(ADMIN_USER_IDS.map(adminId =>
+                    client.pushMessage(adminId, {
+                        type: 'text',
+                        text: `【出勤報告】\n${userName} さんが出勤しました。\n時刻: ${timeString}`,
+                    }).catch(e => console.error(`Failed to push to admin ${adminId}:`, e))
+                ));
             }
 
             return client.replyMessage(replyToken, {
@@ -118,11 +120,13 @@ export const handleEvent = async (event: line.WebhookEvent) => {
             // Sheets更新
             await updateAttendanceRow(userId, 'arrival', timeString);
 
-            if (ADMIN_USER_ID) {
-                await client.pushMessage(ADMIN_USER_ID, {
-                    type: 'text',
-                    text: `【現場到着】\n${userName} さんが現場に到着しました。\n時刻: ${timeString}`,
-                });
+            if (ADMIN_USER_IDS.length > 0) {
+                await Promise.all(ADMIN_USER_IDS.map(adminId =>
+                    client.pushMessage(adminId, {
+                        type: 'text',
+                        text: `【現場到着】\n${userName} さんが現場に到着しました。\n時刻: ${timeString}`,
+                    }).catch(e => console.error(`Failed to push to admin ${adminId}:`, e))
+                ));
             }
 
             return client.replyMessage(replyToken, {
@@ -153,11 +157,13 @@ export const handleEvent = async (event: line.WebhookEvent) => {
             // Sheets更新
             await updateAttendanceRow(userId, 'clockOut', timeString);
 
-            if (ADMIN_USER_ID) {
-                await client.pushMessage(ADMIN_USER_ID, {
-                    type: 'text',
-                    text: `【退勤報告】\n${userName} さんが退勤しました。\n時刻: ${timeString}\nお疲れ様でした。`,
-                });
+            if (ADMIN_USER_IDS.length > 0) {
+                await Promise.all(ADMIN_USER_IDS.map(adminId =>
+                    client.pushMessage(adminId, {
+                        type: 'text',
+                        text: `【退勤報告】\n${userName} さんが退勤しました。\n時刻: ${timeString}\nお疲れ様でした。`,
+                    }).catch(e => console.error(`Failed to push to admin ${adminId}:`, e))
+                ));
             }
 
             return client.replyMessage(replyToken, {
