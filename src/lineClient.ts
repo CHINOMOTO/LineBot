@@ -21,6 +21,10 @@ async function getUserName(userId: string): Promise<string> {
 }
 
 export const handleEvent = async (event: line.WebhookEvent) => {
+    if (event.type === 'postback') {
+        return handlePostback(event);
+    }
+
     if (event.type !== 'message' || event.message.type !== 'text') {
         return Promise.resolve(null);
     }
@@ -167,8 +171,24 @@ export const handleEvent = async (event: line.WebhookEvent) => {
             }
 
             return client.replyMessage(replyToken, {
-                type: 'text',
-                text: `${userName}さん、\n退勤を記録しました (${timeString})`,
+                type: 'template',
+                altText: '残業確認',
+                template: {
+                    type: 'buttons',
+                    text: `${userName}さん、\n退勤を記録しました (${timeString})。\n本日、残業はありましたか？`,
+                    actions: [
+                        {
+                            type: 'postback',
+                            label: '残業あり（時間入力）',
+                            data: 'action=overtime_confirm&value=yes'
+                        },
+                        {
+                            type: 'postback',
+                            label: 'なし',
+                            data: 'action=overtime_confirm&value=no'
+                        }
+                    ]
+                }
             });
         }
 
@@ -182,3 +202,131 @@ export const handleEvent = async (event: line.WebhookEvent) => {
 
     return Promise.resolve(null);
 };
+
+// クエリ文字列をパースするヘルパー
+function parseQueryString(queryString: string): Record<string, string> {
+    const params: Record<string, string> = {};
+    const parts = queryString.split('&');
+    for (const part of parts) {
+        const [key, value] = part.split('=');
+        if (key) {
+            params[decodeURIComponent(key)] = decodeURIComponent(value || '');
+        }
+    }
+    return params;
+}
+
+// ポストバックイベントのハンドラ
+async function handlePostback(event: any) {
+    const userId = event.source.userId;
+    if (!userId) return Promise.resolve(null);
+
+    const replyToken = event.replyToken;
+    const data = event.postback.data;
+    const params = parseQueryString(data);
+    const userName = await getUserName(userId);
+
+    try {
+        if (params.action === 'overtime_confirm') {
+            if (params.value === 'no') {
+                return client.replyMessage(replyToken, {
+                    type: 'text',
+                    text: '残業なしで退勤を記録しました。本日もお疲れ様でした！',
+                });
+            } else if (params.value === 'yes') {
+                const now = new Date();
+                const defaultTime = now.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' });
+
+                return client.replyMessage(replyToken, {
+                    type: 'template',
+                    altText: '残業開始時刻の選択',
+                    template: {
+                        type: 'buttons',
+                        text: '残業の開始時刻を選択してください。',
+                        actions: [
+                            {
+                                type: 'datetimepicker',
+                                label: '開始時刻を選択',
+                                data: 'action=overtime_start_select',
+                                mode: 'time',
+                                initial: defaultTime,
+                            }
+                        ]
+                    }
+                });
+            }
+        }
+
+        if (params.action === 'overtime_start_select') {
+            const startTime = event.postback.params?.time;
+            if (!startTime) {
+                return client.replyMessage(replyToken, {
+                    type: 'text',
+                    text: '開始時刻の取得に失敗しました。もう一度やり直してください。',
+                });
+            }
+
+            // G列に保存
+            await updateAttendanceRow(userId, 'overtimeStart', startTime);
+
+            // 終了時刻ピッカーを送信
+            return client.replyMessage(replyToken, {
+                type: 'template',
+                altText: '残業終了時刻の選択',
+                template: {
+                    type: 'buttons',
+                    text: `残業開始: ${startTime} を記録しました。\n次に、残業の終了時刻を選択してください。`,
+                    actions: [
+                        {
+                            type: 'datetimepicker',
+                            label: '終了時刻を選択',
+                            data: 'action=overtime_end_select',
+                            mode: 'time',
+                            initial: startTime,
+                        }
+                    ]
+                }
+            });
+        }
+
+        if (params.action === 'overtime_end_select') {
+            const endTime = event.postback.params?.time;
+            if (!endTime) {
+                return client.replyMessage(replyToken, {
+                    type: 'text',
+                    text: '終了時刻の取得に失敗しました。もう一度やり直してください。',
+                });
+            }
+
+            // H列に保存
+            await updateAttendanceRow(userId, 'overtimeEnd', endTime);
+
+            // 本日の勤怠情報を取得
+            const attendance = await getTodayAttendance(userId);
+            const startTime = attendance?.overtimeStart || '不明';
+
+            // 管理者への通知
+            if (ADMIN_USER_IDS.length > 0) {
+                await Promise.all(ADMIN_USER_IDS.map(adminId =>
+                    client.pushMessage(adminId, {
+                        type: 'text',
+                        text: `【残業報告】\n${userName} さんから残業報告がありました。\n残業開始: ${startTime}\n残業終了: ${endTime}`,
+                    }).catch(e => console.error(`Failed to push overtime to admin ${adminId}:`, e))
+                ));
+            }
+
+            return client.replyMessage(replyToken, {
+                type: 'text',
+                text: `${userName}さん、\n残業報告を記録しました。\n（開始: ${startTime} / 終了: ${endTime}）\n本日もお疲れ様でした！`,
+            });
+        }
+    } catch (e: any) {
+        console.error('Error processing postback:', e);
+        return client.replyMessage(replyToken, {
+            type: 'text',
+            text: `残業処理中にエラーが発生しました。\n詳細: ${e.message}`,
+        });
+    }
+
+    return Promise.resolve(null);
+}

@@ -35,17 +35,17 @@ async function main() {
     const sheets = google.sheets({ version: 'v4', auth });
 
     // Headers to add
-    const headers = ['日付', 'User ID', '名前', '出勤', '現場到着', '退勤'];
+    const headers = ['日付', 'User ID', '名前', '出勤', '現場到着', '退勤', '残業開始', '残業終了'];
 
     try {
         // Get sheet name (defaulting to first sheet)
         const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
         const sheetTitle = meta.data.sheets?.[0]?.properties?.title || 'Sheet1';
 
-        // Update the first row (A1:F1)
+        // Update the first row (A1:H1)
         await sheets.spreadsheets.values.update({
             spreadsheetId: SPREADSHEET_ID,
-            range: `${sheetTitle}!A1:F1`,
+            range: `${sheetTitle}!A1:H1`,
             valueInputOption: 'USER_ENTERED',
             requestBody: {
                 values: [headers],

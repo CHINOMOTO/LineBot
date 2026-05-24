@@ -83,10 +83,10 @@ export async function appendAttendanceRow(
     try {
         await sheets.spreadsheets.values.append({
             spreadsheetId: SPREADSHEET_ID,
-            range: `${sheetTitle}!A:F`,
+            range: `${sheetTitle}!A:H`,
             valueInputOption: 'USER_ENTERED',
             requestBody: {
-                values: [[today, userId, userName, clockInTime, '', '']],
+                values: [[today, userId, userName, clockInTime, '', '', '', '']],
             },
         });
         console.log(`Appended clock-in to spreadsheet [${sheetTitle}].`);
@@ -103,7 +103,7 @@ export async function appendAttendanceRow(
  */
 export async function updateAttendanceRow(
     userId: string,
-    type: 'arrival' | 'clockOut',
+    type: 'arrival' | 'clockOut' | 'overtimeStart' | 'overtimeEnd',
     timeString: string
 ) {
     if (!SPREADSHEET_ID) {
@@ -117,7 +117,7 @@ export async function updateAttendanceRow(
         // 1. Read existing data to find the row index
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
-            range: `${sheetTitle}!A:F`,
+            range: `${sheetTitle}!A:H`,
         });
 
         const rows = response.data.values;
@@ -143,9 +143,15 @@ export async function updateAttendanceRow(
         }
 
         // 2. Update the specific cell
-        // Arrival is column E (index 4), Clock-Out is column F (index 5)
-        // A=0, B=1, C=2, D=3(ClockIn), E=4(Arrival), F=5(ClockOut)
-        const columnLetter = type === 'arrival' ? 'E' : 'F';
+        // A=0, B=1, C=2, D=3(ClockIn), E=4(Arrival), F=5(ClockOut), G=6(OvertimeStart), H=7(OvertimeEnd)
+        let columnLetter = 'E';
+        if (type === 'clockOut') {
+            columnLetter = 'F';
+        } else if (type === 'overtimeStart') {
+            columnLetter = 'G';
+        } else if (type === 'overtimeEnd') {
+            columnLetter = 'H';
+        }
         const range = `${sheetTitle}!${columnLetter}${targetRowIndex}`;
 
         await sheets.spreadsheets.values.update({
@@ -179,7 +185,7 @@ export async function getTodayAttendance(userId: string) {
     try {
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
-            range: `${sheetTitle}!A:F`,
+            range: `${sheetTitle}!A:H`,
         });
 
         const rows = response.data.values;
@@ -188,12 +194,14 @@ export async function getTodayAttendance(userId: string) {
         // Search in reverse to find the latest record for today
         for (let i = rows.length - 1; i >= 0; i--) {
             const row = rows[i];
-            // Row format: [Date, UserId, Name, ClockIn, Arrival, ClockOut]
+            // Row format: [Date, UserId, Name, ClockIn, Arrival, ClockOut, OvertimeStart, OvertimeEnd]
             if (row[0] === today && row[1] === userId) {
                 return {
                     clockIn: row[3] || null,
                     arrival: row[4] || null,
-                    clockOut: row[5] || null
+                    clockOut: row[5] || null,
+                    overtimeStart: row[6] || null,
+                    overtimeEnd: row[7] || null
                 };
             }
         }
