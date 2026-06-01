@@ -14,6 +14,7 @@
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.0.8",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
@@ -23,6 +24,7 @@
     "@types/express": "^5.0.6",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
-    "googleapis": "^170.1.0"
+    "googleapis": "^170.1.0",
+    "jsonwebtoken": "^9.0.3"
   }
 }

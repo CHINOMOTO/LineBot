@@ -10,6 +10,8 @@ import * as line from '@line/bot-sdk';
 import { handleEvent } from '../src/lineClient'; // Import from src
 // @ts-ignore
 import { updateAttendanceRow } from '../src/sheetsClient';
+// @ts-ignore
+import { sendLineWorksMessage } from '../src/lineWorksClient';
 
 const config = {
     channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN || '',
@@ -87,6 +89,9 @@ app.post('/api/overtime', express.json(), async (req, res) => {
         // G列、H列の更新
         await updateAttendanceRow(userId, 'overtimeStart', startTime);
         await updateAttendanceRow(userId, 'overtimeEnd', endTime);
+
+        // LINE WORKSへの通知
+        await sendLineWorksMessage(`【残業報告】\n${userName || 'メンバー'} さんから残業報告がありました。\n残業開始: ${startTime}\n残業終了: ${endTime}`);
 
         // 管理者への通知
         if (ADMIN_USER_IDS.length > 0) {

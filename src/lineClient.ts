@@ -1,5 +1,6 @@
 import * as line from '@line/bot-sdk';
 import { appendAttendanceRow, updateAttendanceRow, getTodayAttendance } from './sheetsClient';
+import { sendLineWorksMessage } from './lineWorksClient';
 
 const config = {
     channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN || '',
@@ -74,6 +75,9 @@ export const handleEvent = async (event: line.WebhookEvent) => {
             // Sheetsに追記
             await appendAttendanceRow(userId, userName, timeString);
 
+            // LINE WORKSへの通知
+            await sendLineWorksMessage(`【出勤報告】\n${userName} さんが出勤しました。\n時刻: ${timeString}`);
+
             // 管理者通知
             if (ADMIN_USER_IDS.length > 0) {
                 await Promise.all(ADMIN_USER_IDS.map(adminId =>
@@ -120,6 +124,9 @@ export const handleEvent = async (event: line.WebhookEvent) => {
             // Sheets更新
             await updateAttendanceRow(userId, 'arrival', timeString);
 
+            // LINE WORKSへの通知
+            await sendLineWorksMessage(`【現場到着】\n${userName} さんが現場に到着しました。\n時刻: ${timeString}`);
+
             if (ADMIN_USER_IDS.length > 0) {
                 await Promise.all(ADMIN_USER_IDS.map(adminId =>
                     client.pushMessage(adminId, {
@@ -156,6 +163,9 @@ export const handleEvent = async (event: line.WebhookEvent) => {
 
             // Sheets更新
             await updateAttendanceRow(userId, 'clockOut', timeString);
+
+            // LINE WORKSへの通知
+            await sendLineWorksMessage(`【退勤報告】\n${userName} さんが退勤しました。\n時刻: ${timeString}\nお疲れ様でした。`);
 
             if (ADMIN_USER_IDS.length > 0) {
                 await Promise.all(ADMIN_USER_IDS.map(adminId =>
