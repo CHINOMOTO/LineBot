@@ -3,3 +3,7 @@ node_modules/
 service_account.json
 dist/
 *.log
+
+.vercel
+.env.test
+scratch/
