@@ -194,6 +194,13 @@ export const handleEvent = async (event: line.WebhookEvent) => {
             });
         }
 
+        // --- 勤怠コマンド以外の一般チャット受信をLINE WORKSに通知する ---
+        if (!['出勤', '現場到着', '退勤', 'ID'].includes(text)) {
+            await sendLineWorksMessage(
+                `【チャット受信】\n${userName} さんから個別メッセージが届きました。\n\nメッセージ:\n${text}\n\n※LINE公式アカウントの管理画面/アプリから返信してください。`
+            );
+        }
+
     } catch (e: any) {
         console.error('Error processing event:', e);
         return client.replyMessage(replyToken, {
