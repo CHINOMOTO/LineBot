@@ -12,6 +12,8 @@ import { handleEvent } from '../src/lineClient'; // Import from src
 import { updateAttendanceRow } from '../src/sheetsClient';
 // @ts-ignore
 import { sendLineWorksMessage } from '../src/lineWorksClient';
+// @ts-ignore
+import { handleLineWorksWebhook } from '../src/lineWorksWebhook';
 
 const config = {
     channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN || '',
@@ -55,6 +57,21 @@ app.post('/callback', (req, res) => {
     } catch (err) {
         console.error('Signature validation error:', err);
         res.status(401).send('Signature validation failed');
+    }
+});
+
+// --- LINE WORKS Webhook ---
+app.post('/lineworks/callback', express.json(), async (req, res) => {
+    const signature = req.headers['x-works-signature'] as string || '';
+    const rawBody = JSON.stringify(req.body);
+
+    try {
+        const event = req.body;
+        // 処理はバックグラウンドで行い、即座に200を返す（LINE WORKSのタイムアウト対策）
+        res.status(200).send('OK');
+        await handleLineWorksWebhook(event, rawBody, signature);
+    } catch (err) {
+        console.error('LINE WORKS webhook error:', err);
     }
 });
 

@@ -3,7 +3,7 @@ import * as jwt from 'jsonwebtoken';
 /**
  * LINE WORKS API v2.0 サービスアカウント認証用のアクセストークンを取得する
  */
-async function getAccessToken(): Promise<string> {
+export async function getAccessToken(): Promise<string> {
     const clientId = process.env.LINEWORKS_CLIENT_ID;
     const clientSecret = process.env.LINEWORKS_CLIENT_SECRET;
     const serviceAccount = process.env.LINEWORKS_SERVICE_ACCOUNT;
@@ -52,6 +52,91 @@ async function getAccessToken(): Promise<string> {
 
     const data = await res.json() as any;
     return data.access_token;
+}
+
+/**
+ * 特定ユーザーのLINE WORKSトークに直接メッセージを送信する（返信用）
+ */
+export async function sendLineWorksMessageToUser(targetUserId: string, messageText: string): Promise<void> {
+    const botId = process.env.LINEWORKS_BOT_ID;
+    if (!botId) return;
+
+    try {
+        const token = await getAccessToken();
+        const encodedUserId = encodeURIComponent(targetUserId);
+        const url = `https://www.worksapis.com/v1.0/bots/${botId}/users/${encodedUserId}/messages`;
+
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json; charset=UTF-8'
+            },
+            body: JSON.stringify({
+                content: { type: 'text', text: messageText }
+            })
+        });
+
+        if (!res.ok) {
+            const errText = await res.text();
+            console.error(`Failed to send LINE WORKS message to user ${targetUserId}:`, errText);
+        }
+    } catch (error) {
+        console.error('Error sending LINE WORKS user message:', error);
+    }
+}
+
+/**
+ * 特定チャンネル（グループトーク等）にメッセージを送信する（返信用）
+ */
+export async function sendLineWorksMessageToChannel(channelId: string, messageText: string): Promise<void> {
+    const botId = process.env.LINEWORKS_BOT_ID;
+    if (!botId) return;
+
+    try {
+        const token = await getAccessToken();
+        const url = `https://www.worksapis.com/v1.0/bots/${botId}/channels/${channelId}/messages`;
+
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json; charset=UTF-8'
+            },
+            body: JSON.stringify({
+                content: { type: 'text', text: messageText }
+            })
+        });
+
+        if (!res.ok) {
+            const errText = await res.text();
+            console.error(`Failed to send LINE WORKS message to channel ${channelId}:`, errText);
+        }
+    } catch (error) {
+        console.error('Error sending LINE WORKS channel message:', error);
+    }
+}
+
+/**
+ * LINE WORKSのユーザー表示名を取得する
+ */
+export async function getLineWorksUserName(userId: string): Promise<string> {
+    try {
+        const token = await getAccessToken();
+        const encodedUserId = encodeURIComponent(userId);
+        const res = await fetch(`https://www.worksapis.com/v1.0/users/${encodedUserId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        if (res.ok) {
+            const data = await res.json() as any;
+            return data.displayName || data.userName || 'メンバー';
+        }
+    } catch (e) {
+        console.error('Failed to get LINE WORKS user name:', e);
+    }
+    return 'メンバー';
 }
 
 /**
